@@ -1,3 +1,31 @@
-from reporecall.models.records import ChangedFile, FileChangeType, GitCommit
+from reporecall.models.records import (
+    ChangedFile,
+    FileChangeType,
+    GitCommit,
+    GitHubBranchReference,
+    GitHubCommitReference,
+    GitHubIssue,
+    GitHubIssueLabel,
+    GitHubPullRequest,
+    GitHubPullRequestFile,
+    GitHubPullRequestFileStatus,
+    GitHubUser,
+    IssueState,
+    PullRequestState,
+)
 
-__all__ = ["ChangedFile", "FileChangeType", "GitCommit"]
+__all__ = [
+    "ChangedFile",
+    "FileChangeType",
+    "GitCommit",
+    "GitHubBranchReference",
+    "GitHubCommitReference",
+    "GitHubIssue",
+    "GitHubIssueLabel",
+    "GitHubPullRequest",
+    "GitHubPullRequestFile",
+    "GitHubPullRequestFileStatus",
+    "GitHubUser",
+    "IssueState",
+    "PullRequestState",
+]

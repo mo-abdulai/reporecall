@@ -131,7 +131,7 @@ Do not manually add package versions directly to `requirements.txt`.
 After changing production dependencies, regenerate deployment requirements using:
 
 ```bash
-uv export --format requirements.txt --output-file requirements.txt
+uv export --format requirements.txt --no-hashes -o requirements.txt
 ```
 
 Keep:
@@ -560,7 +560,7 @@ uv run pytest --cov=reporecall
 If dependencies changed, regenerate:
 
 ```bash
-uv export --format requirements.txt --output-file requirements.txt
+uv export --format requirements.txt --no-hashes -o requirements.txt
 ```
 
 Do not claim tests passed unless they were actually run successfully.
@@ -835,6 +835,39 @@ docs/RETRIEVAL_DESIGN.md
 for deeper technical documentation.
 
 When making major architectural changes, update relevant documentation.
+
+
+## README Maintenance
+
+README.md is a living technical document and must remain synchronized with
+the actual implementation.
+
+After completing work that changes RepoRecall's capabilities or architecture,
+update README.md where appropriate.
+
+Keep the README product-focused. Do not expose internal development phase
+numbers or a "Current Phase" / "Project Status" section.
+
+Update relevant sections such as:
+
+- Overview
+- Architecture
+- Current capabilities
+- Data model
+- Project structure
+- Usage examples
+- Tech stack
+- Testing
+- Evaluation results
+- Deployment instructions
+- Limitations
+- Roadmap
+
+Only describe functionality as implemented when it actually exists.
+
+Planned functionality must be clearly labeled as planned or future work.
+
+Do not add phase-completion checklists to README.md.
 
 ---
 
