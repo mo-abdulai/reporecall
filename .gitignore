@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Virtual environment
+.venv/
+
+# Environment variables
+.env
+
+# IDE
+.vscode/
+.idea/
+
+# macOS
+.DS_Store
+
+# Test / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# RepoRecall local data
+data/repositories/*
+data/cache/*
+
+# Keep directories
+!data/repositories/.gitkeep
+!data/cache/.gitkeep
+
+# Future vector/index storage
+*.index
+*.pkl
