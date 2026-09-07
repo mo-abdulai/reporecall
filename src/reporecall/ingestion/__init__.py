@@ -4,6 +4,7 @@ from reporecall.ingestion.git_loader import (
     InvalidCommitLimitError,
     InvalidRepositoryError,
 )
+from reporecall.ingestion.github_comment_loader import GitHubCommentLoader
 from reporecall.ingestion.github_issue_loader import (
     GitHubIssueLoader,
     InvalidIssueLimitError,
@@ -15,6 +16,10 @@ from reporecall.ingestion.github_pull_request_loader import (
     InvalidPullRequestLimitError,
     InvalidPullRequestNumberError,
 )
+from reporecall.ingestion.github_relationship_evidence_loader import (
+    GitHubRelationshipEvidenceLoader,
+)
+from reporecall.ingestion.github_review_loader import GitHubReviewLoader
 from reporecall.ingestion.repository_loader import (
     InvalidRepositoryURLError,
     RepositoryCloneError,
@@ -24,8 +29,11 @@ from reporecall.ingestion.repository_loader import (
 
 __all__ = [
     "CommitNotFoundError",
+    "GitHubCommentLoader",
     "GitHubIssueLoader",
     "GitHubPullRequestLoader",
+    "GitHubRelationshipEvidenceLoader",
+    "GitHubReviewLoader",
     "GitLoader",
     "InvalidCommitLimitError",
     "InvalidIssueLimitError",

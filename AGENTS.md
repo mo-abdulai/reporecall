@@ -228,6 +228,9 @@ Examples:
 
 Ingestion code must not contain RAG or LLM logic.
 
+GitHub relationship-evidence loaders may perform network requests, but they must
+normalize API responses into domain models before passing evidence to processing.
+
 ### Models
 
 Contains structured domain models.
@@ -250,6 +253,26 @@ Responsible for tasks such as:
 * entity linking
 * metadata extraction
 * code parsing
+
+Deterministic relationship linkers and enrichers belong in this layer.
+
+Relationship linking and enrichment must:
+
+* operate only on normalized records and evidence supplied by the caller
+* avoid Git, GitHub API, HTTP, database, and external-service calls
+* preserve explicit evidence for every emitted relationship
+* preserve provenance when multiple evidence sources support a relationship
+* keep LLM or semantic inference separate from deterministic extraction
+* represent direct evidence without creating transitive relationship conclusions
+
+Engineering event construction also belongs in processing and must:
+
+* operate entirely offline over normalized records and direct relationships
+* use an explicit, deterministic set of event-forming relationship types
+* keep weak references contextual rather than merging events through them
+* preserve relationship direction and avoid creating transitive relationships
+* use stable anchors, event identifiers, artifact ordering, and event ordering
+* defer semantic event classification to metadata processing
 
 ### Documents
 

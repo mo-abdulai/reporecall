@@ -139,28 +139,43 @@ rather than relying exclusively on semantic similarity.
 The implemented architecture currently looks like this:
 
 ```text
-                         GitHub Repository
-                                │
-               ┌────────────────┴────────────────┐
-               │                                 │
-               ▼                                 ▼
-        RepositoryLoader                   GitHubClient
-               │                                 │
-               ▼                                 ▼
-      Local Git Repository               GitHub REST API
-               │                      ┌──────────┴──────────┐
-               ▼                      │                     │
-           GitLoader                   ▼                     ▼
-               │              GitHubIssueLoader   GitHubPullRequestLoader
-               ▼                      │                     │
-          GitCommit                    ▼           ┌─────────┼─────────┐
-               │                  GitHubIssue      ▼         ▼         ▼
-               │                         GitHubPullRequest PR Files Commit Refs
-               ▼
-         ChangedFile
-               │
-               ▼
-          Diff / Patch
+GitHub Repository
+      │
+      ├────────────── Local Git
+      │                   │
+      │                   ▼
+      │                Commits
+      │                   │
+      │                   ▼
+      │              Changed Files
+      │                   │
+      │                   ▼
+      │                 Diffs
+      │
+      └────────────── GitHub API
+                          │
+             ┌────────────┴────────────┐
+             ▼                         ▼
+      Issues / PRs / Reviews     Relationship Evidence
+             │                         │
+             ▼                         ▼
+      Normalized Records        Normalized Evidence
+             │                         │
+             ├── ReferenceParser       │
+             ▼                         │
+      RelationshipLinker               │
+             │                         │
+             └────────────┬────────────┘
+                          ▼
+                RelationshipEnricher
+                          ▼
+              Engineering Relationships
+                          │
+            Normalized Records + Relationships
+                          ▼
+             EngineeringEventAssembler
+                          ▼
+                Engineering Events
 ```
 
 RepoRecall currently has two intentionally separate ingestion paths:
@@ -187,18 +202,16 @@ issues
 pull requests
 pull request files
 pull request commit references
+issue comments
+pull request conversation comments
+pull request reviews
+pull request review comments
+issue and pull request timeline relationship evidence
+commit-associated pull request evidence
 labels
 authors
 states
 GitHub URLs
-```
-
-Future capabilities will add:
-
-```text
-comments
-reviews
-relationships
 ```
 
 These two paths remain separate because Git and GitHub provide different types of information.
@@ -218,18 +231,23 @@ Git Repository
 Local Git                         GitHub API
       │                               │
       ▼                               ▼
-Commit History                    Issues
-      │                           Pull Requests
-      ▼                           PR Files
-Changed Files                    Commit References
-      │                           Labels
-      ▼                           Authors
-Diffs / Patches                  Timestamps
-      │                           URLs
-      └───────────────┬───────────────┘
-                      │
+Commit History                    Issues / Pull Requests
+      │                           Discussions / Reviews
+      ▼                           PR Files / Commit References
+Changed Files                    Timeline Evidence
+      │                           Commit / PR Associations
+      ▼                                  │
+Diffs / Patches                         ▼
+      │                         RepoRecall Domain Models
+      └───────────────┬──────────────────┘
                       ▼
-             RepoRecall Domain Models
+       RelationshipLinker + RelationshipEnricher
+                      ▼
+              Engineering Relationships
+                      ▼
+          EngineeringEventAssembler
+                      ▼
+               Engineering Events
 ```
 
 No embeddings, vector database, or LLM generation are required at this stage.
@@ -655,6 +673,152 @@ Listing pull requests does not automatically fetch files or commits for every PR
 
 ---
 
+# GitHub Discussion and Review Ingestion
+
+RepoRecall can now retrieve discussion context around issues and pull requests as independent normalized records.
+
+```text
+GitHub API
+   │
+   ├── Issues
+   │    └── Comments
+   │
+   └── Pull Requests
+        ├── Files
+        ├── Commit References
+        ├── Conversation Comments
+        ├── Reviews
+        └── Review Comments
+```
+
+`GitHubCommentLoader` retrieves issue-style comments:
+
+```text
+/repos/{owner}/{repo}/issues/{number}/comments
+```
+
+GitHub exposes regular pull request conversation comments through the same issue-comment endpoint, so RepoRecall normalizes both issue comments and PR conversation comments into `GitHubIssueComment`.
+
+`GitHubReviewLoader` retrieves pull request review records and line-level review comments:
+
+```text
+/repos/{owner}/{repo}/pulls/{number}/reviews
+/repos/{owner}/{repo}/pulls/{number}/comments
+```
+
+These records preserve identifiers and provenance for later linking:
+
+```text
+repository
+issue number
+pull request number
+review ID
+commit SHA
+original commit SHA
+file path
+line metadata where GitHub provides it
+GitHub URL
+```
+
+Discussion and review loading is explicit. Listing issues does not fetch comments, and listing pull requests does not fetch conversation comments, reviews, or review comments.
+
+---
+
+# GitHub Relationship Evidence
+
+RepoRecall can explicitly retrieve relationship evidence that GitHub records independently of local text parsing.
+
+```text
+GitHub API
+    │
+    ├── /issues/{number}/timeline
+    │       ├── cross-referenced
+    │       ├── referenced
+    │       └── closed with a commit ID
+    │
+    └── /commits/{sha}/pulls
+            └── associated pull requests
+```
+
+`GitHubRelationshipEvidenceLoader` converts these responses into normalized `GitHubTimelineRelationshipEvidence` and `GitHubCommitPullRequestAssociation` records. Unsupported timeline events are ignored, while malformed supported relationship events fail with a structured GitHub response error.
+
+Evidence loading is always explicit. Listing issues, pull requests, or commits does not automatically request timelines or commit-associated pull requests, avoiding N+1 API behavior.
+
+---
+
+# Deterministic Relationship Linking
+
+RepoRecall can connect normalized engineering-history records using deterministic evidence.
+
+The linker operates only on records supplied by the caller:
+
+```text
+Normalized Records
+       ↓
+ReferenceParser
+       ↓
+RelationshipLinker
+       ↓
+EngineeringRelationship[]
+```
+
+It does not call GitHub, Git, databases, external services, embeddings, or LLMs.
+
+GitHub-authoritative evidence follows a separate path and is combined offline:
+
+```text
+GitHubClient
+      ↓
+GitHubRelationshipEvidenceLoader
+      ↓
+Normalized GitHub Evidence
+
+Normalized Records + Existing Relationships + GitHub Evidence
+      ↓
+RelationshipEnricher
+      ↓
+EngineeringRelationship[]
+```
+
+`RelationshipEnricher` performs no network or Git operations. It adds relationships only when their source and target artifacts exist in the supplied normalized records, and it uses exact repository and commit SHA identity.
+
+Implemented direct relationships include:
+
+```text
+Issue → Issue Comment
+Pull Request → Conversation Comment
+Pull Request → Review
+Review → Review Comment
+Pull Request → Review Comment
+Pull Request → GitHub Commit Reference
+GitHub Commit Reference → Local Git Commit
+Pull Request → PR Changed File
+Local Git Commit → Local Changed File
+Pull Request → Referenced Issue
+Pull Request → Closed Issue
+Local Git Commit → Referenced Issue
+Local Git Commit → Closed Issue
+```
+
+GitHub evidence can directly add or confirm:
+
+```text
+Pull Request → Referenced Issue
+Commit → Referenced Issue
+Commit → Closed Issue
+Pull Request → Associated Commit
+```
+
+Every emitted relationship includes evidence explaining why it exists, such as a parent identifier, PR commit-list membership, exact SHA match, PR file-list membership, local commit file membership, a closing keyword, or a supported text reference.
+
+Plain references and closing references remain distinct. For example, `See #123` can produce a reference relationship, while `Fixes #123` can produce a closing relationship. Missing issue targets are skipped rather than fabricated. Cross-repository references are only linked when the referenced repository's issue record is present in the supplied input.
+
+Multiple evidence sources are preserved rather than reduced to a generated confidence score. A PR body containing `Fixes #10` remains closing-keyword evidence, while a GitHub timeline cross-reference can independently preserve authoritative evidence that the PR referenced issue `#10`. Relationship identity includes the evidence type, so distinct provenance can coexist while duplicate evidence of the same type is collapsed deterministically.
+
+Only direct relationships are emitted. For example, a commit closing an issue and the same commit being associated with a PR does not cause RepoRecall to infer that the PR closes the issue.
+
+---
+
 # Domain Models
 
 RepoRecall uses Pydantic models at external-data boundaries.
@@ -701,6 +865,10 @@ Preserves structured GitHub labels.
 ## `GitHubIssue`
 
 Represents normalized GitHub issue information.
+
+## `GitHubIssueComment`
+
+Represents an issue-style GitHub comment. This model is also used for regular pull request conversation comments because GitHub exposes those through the issue-comments API.
 
 ## `IssueState`
 
@@ -749,6 +917,22 @@ Represents a lightweight commit reference returned by GitHub's pull request comm
 
 This is intentionally separate from `GitCommit`, which represents richer local Git commit data with changed files and patches.
 
+## `GitHubTimelineRelationshipEvidence`
+
+Represents normalized GitHub timeline evidence for supported `cross-referenced`, `referenced`, and commit-backed `closed` events. It preserves the target, timestamp, actor where available, structural PR detection for cross-reference sources, and exact commit identity for commit events.
+
+## `GitHubCommitPullRequestAssociation`
+
+Represents GitHub's authoritative association between one exact commit SHA and a pull request without duplicating the full pull request record.
+
+## `GitHubPullRequestReview`
+
+Represents a pull request review, including review state, reviewer identity where available, submission timestamp, commit SHA, body, and source URL.
+
+## `GitHubPullRequestReviewComment`
+
+Represents a line-level pull request review comment, including review ID, file path, commit identifiers, line metadata where GitHub provides it, timestamps, author, body, and source URL.
+
 ## `PullRequestState`
 
 Represents:
@@ -759,6 +943,68 @@ closed
 ```
 
 pull request listing state. Merged pull requests are represented as closed PRs with merge metadata such as `merged_at`.
+
+## `ReviewState`
+
+Represents normalized pull request review states:
+
+```text
+approved
+changes_requested
+commented
+dismissed
+pending
+```
+
+## `ArtifactReference`
+
+Represents a lightweight, stable reference to an artifact participating in relationships. It stores:
+
+```text
+artifact type
+repository
+deterministic identifier
+```
+
+Examples include issue number `123`, pull request number `456`, commit SHA `abc123`, PR file identifier `pr:456:file:src/app.py`, and local changed-file identifier `abc123:src/app.py`.
+
+## `EngineeringRelationship`
+
+Represents a direct deterministic relationship between two artifact references.
+
+Each relationship preserves:
+
+```text
+source artifact
+target artifact
+relationship type
+evidence type
+concise evidence text where useful
+source field where useful
+```
+
+Relationship direction is consistent. Examples:
+
+```text
+Issue → Issue Comment
+Pull Request → Conversation Comment
+Pull Request → Review
+Review → Review Comment
+Pull Request → GitHub Commit Reference
+GitHub Commit Reference → Local Git Commit
+Pull Request → PR Changed File
+Local Git Commit → Local Changed File
+Pull Request → Referenced or Closed Issue
+Local Git Commit → Referenced or Closed Issue
+```
+
+Relationship deduplication uses source artifact, relationship type, target artifact, and evidence type as the relationship identity. Duplicate text matches that produce the same direct relationship are collapsed deterministically.
+
+## `EngineeringEvent`
+
+Represents one repository-local structural episode assembled from normalized records and direct relationships. It preserves its deterministic ID and anchor, issues, discussions, pull requests, reviews, changed files, GitHub and local commit representations, internal relationships, and contextual relationships.
+
+Convenience properties expose deterministic issue numbers, pull request numbers, commit SHAs, and changed paths without adding semantic classification.
 
 Domain models intentionally do not contain:
 
@@ -897,57 +1143,75 @@ The intended mature architecture is:
 
 # Engineering Event Model
 
-One of RepoRecall's most important future concepts is the:
+RepoRecall assembles normalized records into coherent structural units:
 
 ```text
 EngineeringEvent
 ```
 
-Instead of treating historical artifacts as unrelated documents:
+The assembler receives normalized records and the direct relationships already produced by the linking and enrichment layers:
 
 ```text
-Issue
-
-PR
-
-Commit
-
-Diff
+Normalized Records + EngineeringRelationship[]
+                         ↓
+             EngineeringEventAssembler
+                         ↓
+                EngineeringEvent[]
 ```
 
-RepoRecall will connect them:
+Event membership is computed as repository-local connected components over an explicit set of event-forming relationships:
 
 ```text
-Issue #801
-    │
-    ▼
-PR #842
-    │
-    ▼
-Commit a81fc93
-    │
-    ▼
-src/database/session.py
-    │
-    ▼
-tests/test_session.py
+PULL_REQUEST_CLOSES_ISSUE
+COMMIT_CLOSES_ISSUE
+PULL_REQUEST_HAS_COMMIT
+GITHUB_COMMIT_MATCHES_LOCAL_COMMIT
+ISSUE_HAS_COMMENT
+PULL_REQUEST_HAS_COMMENT
+PULL_REQUEST_HAS_REVIEW
+REVIEW_HAS_COMMENT
+PULL_REQUEST_HAS_REVIEW_COMMENT
+PULL_REQUEST_CHANGES_FILE
+LOCAL_COMMIT_CHANGES_FILE
 ```
 
-This represents one historical engineering event:
+These directed relationships remain unchanged, but the assembler may traverse them in either direction for component membership. It does not create transitive relationships.
+
+Weak references are contextual and do not merge components:
 
 ```text
-Problem
-   ↓
-Discussion
-   ↓
-Solution
-   ↓
-Implementation
-   ↓
-Verification
+"Fixes #123"
+→ may structurally join a PR or commit with Issue #123
+
+"See #123"
+→ remains contextual and leaves independent events separate
 ```
 
-That connected history is much more useful than isolated vector chunks.
+Each event can contain:
+
+```text
+EngineeringEvent
+├── Issues
+│   └── Comments
+├── Pull Requests
+│   ├── Conversation Comments
+│   ├── Reviews and Review Comments
+│   ├── Changed Files
+│   └── GitHub Commit References
+├── Local Commits
+│   └── Changed Files and Patches
+└── Internal and Contextual Relationships
+```
+
+Core artifacts such as issues, pull requests, local commits, and GitHub commit references can form standalone events. Secondary records with no connected core artifact are skipped rather than becoming low-context standalone events. Missing relationship endpoints are ignored for membership and no records are fabricated.
+
+Anchors use the deterministic priority pull request, issue, local commit, then GitHub commit reference. Numbered anchors choose the lowest number, and commit anchors choose the lexicographically smallest SHA. Event IDs use the repository plus anchor, for example `github.com__fastapi__fastapi__pull_request__487`.
+
+Artifacts are ordered deterministically: issues and PRs by number; comments by timestamp and ID; reviews by submission timestamp and ID; PR files by path and stable relationship identifier; GitHub commits by SHA; local commits by committed timestamp and SHA. Relationships and final events are also sorted deterministically, and duplicate records are resolved by artifact identity rather than matching titles or messages.
+
+An event may contain multiple issues or pull requests when strong direct relationships connect them. This is structural grouping, not a semantic claim that the event is a bug fix, feature, refactor, or any other inferred category.
+
+Event identity currently depends on the selected anchor. If later ingestion discovers a previously absent higher-priority anchor, the deterministic event ID can change until a future persistence layer introduces durable identity.
 
 ---
 
@@ -1325,18 +1589,33 @@ reporecall/
 │       │   ├── __init__.py
 │       │   ├── git_loader.py
 │       │   ├── repository_loader.py
+│       │   ├── github_comment_loader.py
 │       │   ├── github_issue_loader.py
-│       │   └── github_pull_request_loader.py
+│       │   ├── github_pull_request_loader.py
+│       │   ├── github_relationship_evidence_loader.py
+│       │   └── github_review_loader.py
 │       │
 │       ├── models/
 │       │   ├── __init__.py
-│       │   └── records.py
+│       │   ├── events.py
+│       │   ├── github_evidence.py
+│       │   ├── records.py
+│       │   └── relationships.py
+│       │
+│       ├── processing/
+│       │   ├── __init__.py
+│       │   ├── event_assembler.py
+│       │   ├── reference_parser.py
+│       │   ├── relationship_enricher.py
+│       │   └── relationship_linker.py
 │       │
 │       └── utils/
 │
 ├── tests/
+│   ├── github/
 │   ├── ingestion/
-│   └── github/
+│   ├── models/
+│   └── processing/
 │
 ├── data/
 │   ├── repositories/
@@ -1352,7 +1631,6 @@ Future directories will only be added when their corresponding capabilities are 
 Potential future modules include:
 
 ```text
-processing/
 documents/
 embeddings/
 storage/
@@ -1563,6 +1841,104 @@ print([commit.sha for commit in commits])
 
 ---
 
+## Retrieve GitHub Comments and Reviews
+
+```python
+from reporecall.github import GitHubClient, GitHubRepository
+from reporecall.ingestion import GitHubCommentLoader, GitHubReviewLoader
+
+repository = GitHubRepository.parse("fastapi/fastapi")
+
+with GitHubClient() as client:
+    comments = GitHubCommentLoader(client, repository)
+    reviews = GitHubReviewLoader(client, repository)
+
+    issue_comments = comments.get_issue_comments(123)
+    pr_comments = comments.get_pull_request_comments(456)
+    pr_reviews = reviews.get_pull_request_reviews(456)
+    review_comments = reviews.get_pull_request_review_comments(456)
+
+print([comment.id for comment in issue_comments])
+print([comment.id for comment in pr_comments])
+print([review.state for review in pr_reviews])
+print([comment.path for comment in review_comments])
+```
+
+---
+
+## Link Normalized Records
+
+```python
+from reporecall.processing import RelationshipInput, RelationshipLinker
+
+records = RelationshipInput(
+    repository=repository,
+    issues=issues,
+    pull_requests=pull_requests,
+    pull_request_commits={123: commits},
+    local_commits=local_commits,
+)
+
+relationships = RelationshipLinker().link(records)
+
+for relationship in relationships:
+    print(
+        relationship.source,
+        relationship.relationship_type,
+        relationship.target,
+        relationship.evidence_type,
+    )
+```
+
+---
+
+## Enrich Relationships with GitHub Evidence
+
+```python
+from reporecall.github import GitHubClient
+from reporecall.ingestion import GitHubRelationshipEvidenceLoader
+from reporecall.processing import RelationshipEnricher
+
+with GitHubClient() as client:
+    evidence_loader = GitHubRelationshipEvidenceLoader(client, repository)
+    timeline_evidence = evidence_loader.get_timeline_relationship_evidence(10)
+    commit_pr_associations = evidence_loader.get_pull_requests_for_commit("abc123")
+
+enriched_relationships = RelationshipEnricher().enrich(
+    relationships,
+    records=records,
+    timeline_evidence=timeline_evidence,
+    commit_pr_associations=commit_pr_associations,
+)
+```
+
+The caller chooses which issue, pull request, or commit evidence to load. This keeps API cost explicit and allows the same normalized evidence to be processed deterministically offline.
+
+---
+
+## Assemble Engineering Events
+
+```python
+from reporecall.processing import EngineeringEventAssembler, EngineeringEventInput
+
+event_input = EngineeringEventInput(
+    **records.model_dump(),
+    relationships=enriched_relationships,
+)
+
+events = EngineeringEventAssembler().assemble(event_input)
+
+for event in events:
+    print(event.event_id)
+    print(event.pull_request_numbers)
+    print(event.issue_numbers)
+    print(event.commit_shas)
+```
+
+Event assembly is offline and deterministic. It organizes existing evidence without producing summaries, metadata inference, retrieval documents, or chunks.
+
+---
+
 # Testing
 
 Run the complete test suite:
@@ -1668,12 +2044,15 @@ RepoRecall is being built incrementally. Implemented capabilities include:
 * normalized GitHub issue ingestion
 * normalized GitHub pull request ingestion
 * explicit pull request changed-file and commit-reference retrieval
+* explicit issue and pull request conversation comment ingestion
+* explicit pull request review and review-comment ingestion
+* deterministic relationship linking over normalized records
+* explicit GitHub timeline and commit-associated pull request evidence ingestion
+* offline relationship enrichment with preserved evidence provenance
+* deterministic repository-local engineering event assembly
 
 Planned capabilities include:
 
-* issue, pull request, review, and comment ingestion
-* relationship linking between issues, pull requests, commits, files, and tests
-* normalized engineering events
 * deterministic metadata extraction
 * retrieval document generation
 * domain-aware chunking

@@ -1,3 +1,9 @@
+from reporecall.models.events import EngineeringEvent
+from reporecall.models.github_evidence import (
+    GitHubCommitPullRequestAssociation,
+    GitHubTimelineEvidenceType,
+    GitHubTimelineRelationshipEvidence,
+)
 from reporecall.models.records import (
     ChangedFile,
     FileChangeType,
@@ -5,27 +11,51 @@ from reporecall.models.records import (
     GitHubBranchReference,
     GitHubCommitReference,
     GitHubIssue,
+    GitHubIssueComment,
     GitHubIssueLabel,
     GitHubPullRequest,
     GitHubPullRequestFile,
     GitHubPullRequestFileStatus,
+    GitHubPullRequestReview,
+    GitHubPullRequestReviewComment,
     GitHubUser,
     IssueState,
     PullRequestState,
+    ReviewState,
+)
+from reporecall.models.relationships import (
+    ArtifactReference,
+    ArtifactType,
+    EngineeringRelationship,
+    RelationshipEvidenceType,
+    RelationshipType,
 )
 
 __all__ = [
+    "ArtifactReference",
+    "ArtifactType",
     "ChangedFile",
+    "EngineeringEvent",
+    "EngineeringRelationship",
     "FileChangeType",
     "GitCommit",
     "GitHubBranchReference",
+    "GitHubCommitPullRequestAssociation",
     "GitHubCommitReference",
     "GitHubIssue",
+    "GitHubIssueComment",
     "GitHubIssueLabel",
     "GitHubPullRequest",
     "GitHubPullRequestFile",
     "GitHubPullRequestFileStatus",
+    "GitHubPullRequestReview",
+    "GitHubPullRequestReviewComment",
+    "GitHubTimelineEvidenceType",
+    "GitHubTimelineRelationshipEvidence",
     "GitHubUser",
     "IssueState",
     "PullRequestState",
+    "RelationshipEvidenceType",
+    "RelationshipType",
+    "ReviewState",
 ]

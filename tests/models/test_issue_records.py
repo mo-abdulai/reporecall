@@ -4,7 +4,13 @@ import pytest
 from pydantic import ValidationError
 
 from reporecall.github import GitHubRepository
-from reporecall.models import GitHubIssue, GitHubIssueLabel, GitHubUser, IssueState
+from reporecall.models import (
+    GitHubIssue,
+    GitHubIssueComment,
+    GitHubIssueLabel,
+    GitHubUser,
+    IssueState,
+)
 
 
 def test_github_issue_constructs_open_issue_with_metadata():
@@ -58,6 +64,28 @@ def test_github_issue_constructs_closed_issue_with_nullable_body_and_author():
     assert issue.closed_at.tzinfo is not None
 
 
+def test_github_issue_comment_preserves_parent_repository_author_and_url():
+    comment = GitHubIssueComment(
+        repository=GitHubRepository(owner="fastapi", name="fastapi"),
+        id=987,
+        issue_number=123,
+        author=GitHubUser(login="octocat", id=1, html_url="https://github.com/octocat"),
+        body=None,
+        created_at=datetime(2026, 1, 1, 12, 0, tzinfo=UTC),
+        updated_at=datetime(2026, 1, 2, 12, 0, tzinfo=UTC),
+        html_url="https://github.com/fastapi/fastapi/issues/123#issuecomment-987",
+        author_association="CONTRIBUTOR",
+    )
+
+    assert comment.repository == GitHubRepository(owner="fastapi", name="fastapi")
+    assert comment.issue_number == 123
+    assert comment.author is not None
+    assert comment.author.login == "octocat"
+    assert comment.body is None
+    assert comment.created_at.tzinfo is not None
+    assert comment.html_url.endswith("#issuecomment-987")
+
+
 def test_github_issue_rejects_invalid_state():
     with pytest.raises(ValidationError):
         GitHubIssue(
@@ -74,6 +102,22 @@ def test_github_issue_rejects_invalid_state():
             html_url="https://github.com/fastapi/fastapi/issues/123",
             comments_count=0,
             locked=False,
+        )
+
+
+def test_github_issue_comment_rejects_naive_timestamps():
+    naive_created_at = datetime(2026, 1, 1, 12, 0, tzinfo=UTC).replace(tzinfo=None)
+
+    with pytest.raises(ValidationError):
+        GitHubIssueComment(
+            repository=GitHubRepository(owner="fastapi", name="fastapi"),
+            id=987,
+            issue_number=123,
+            author=None,
+            body="Looks related.",
+            created_at=naive_created_at,
+            updated_at=datetime(2026, 1, 2, 12, 0, tzinfo=UTC),
+            html_url="https://github.com/fastapi/fastapi/issues/123#issuecomment-987",
         )
 
 

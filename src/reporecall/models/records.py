@@ -87,11 +87,51 @@ class GitHubIssue(BaseModel):
         return value
 
 
+class GitHubIssueComment(BaseModel):
+    """Normalized issue-style GitHub comment data."""
+
+    repository: GitHubRepository
+    id: int
+    issue_number: int
+    author: GitHubUser | None
+    body: str | None
+    created_at: datetime
+    updated_at: datetime
+    html_url: str
+    author_association: str | None = None
+
+    @field_validator("created_at", "updated_at")
+    @classmethod
+    def require_timezone(cls, value: datetime) -> datetime:
+        if value.tzinfo is None:
+            raise ValueError("GitHub issue comment timestamps must be timezone-aware.")
+        return value
+
+
 class PullRequestState(str, Enum):
     """GitHub pull request states supported as listing filters."""
 
     OPEN = "open"
     CLOSED = "closed"
+
+
+class ReviewState(str, Enum):
+    """GitHub pull request review states normalized by RepoRecall."""
+
+    APPROVED = "approved"
+    CHANGES_REQUESTED = "changes_requested"
+    COMMENTED = "commented"
+    DISMISSED = "dismissed"
+    PENDING = "pending"
+
+    @classmethod
+    def _missing_(cls, value: object) -> "ReviewState | None":
+        if isinstance(value, str):
+            normalized = value.lower()
+            for member in cls:
+                if member.value == normalized:
+                    return member
+        return None
 
 
 class GitHubPullRequestFileStatus(str, Enum):
@@ -152,6 +192,57 @@ class GitHubPullRequest(BaseModel):
     def require_timezone(cls, value: datetime | None) -> datetime | None:
         if value is not None and value.tzinfo is None:
             raise ValueError("GitHub pull request timestamps must be timezone-aware.")
+        return value
+
+
+class GitHubPullRequestReview(BaseModel):
+    """Normalized GitHub pull request review metadata."""
+
+    repository: GitHubRepository
+    id: int
+    pull_request_number: int
+    author: GitHubUser | None
+    body: str | None
+    state: ReviewState
+    submitted_at: datetime | None
+    commit_sha: str | None
+    html_url: str | None
+
+    @field_validator("submitted_at")
+    @classmethod
+    def require_timezone(cls, value: datetime | None) -> datetime | None:
+        if value is not None and value.tzinfo is None:
+            raise ValueError("GitHub pull request review timestamps must be timezone-aware.")
+        return value
+
+
+class GitHubPullRequestReviewComment(BaseModel):
+    """A line-level comment attached to a GitHub pull request review."""
+
+    repository: GitHubRepository
+    id: int
+    pull_request_number: int
+    review_id: int | None
+    author: GitHubUser | None
+    body: str | None
+    created_at: datetime
+    updated_at: datetime
+    html_url: str
+    commit_sha: str | None
+    original_commit_sha: str | None
+    path: str
+    line: int | None = None
+    original_line: int | None = None
+    side: str | None = None
+    start_line: int | None = None
+    start_side: str | None = None
+    author_association: str | None = None
+
+    @field_validator("created_at", "updated_at")
+    @classmethod
+    def require_timezone(cls, value: datetime) -> datetime:
+        if value.tzinfo is None:
+            raise ValueError("GitHub pull request review comment timestamps must be timezone-aware.")
         return value
 
 

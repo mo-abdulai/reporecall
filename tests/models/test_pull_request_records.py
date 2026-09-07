@@ -11,8 +11,11 @@ from reporecall.models import (
     GitHubPullRequest,
     GitHubPullRequestFile,
     GitHubPullRequestFileStatus,
+    GitHubPullRequestReview,
+    GitHubPullRequestReviewComment,
     GitHubUser,
     PullRequestState,
+    ReviewState,
 )
 
 
@@ -103,6 +106,56 @@ def test_pull_request_file_and_commit_reference_models():
     assert changed_file.patch is None
     assert commit.authored_at is not None
     assert commit.authored_at.tzinfo is not None
+
+
+def test_pull_request_review_normalizes_uppercase_state_and_nullable_fields():
+    review = GitHubPullRequestReview(
+        repository=GitHubRepository(owner="owner", name="repo"),
+        id=11,
+        pull_request_number=123,
+        author=None,
+        body=None,
+        state="APPROVED",
+        submitted_at=datetime(2026, 1, 3, 12, 0, tzinfo=UTC),
+        commit_sha="abc123",
+        html_url=None,
+    )
+
+    assert review.state is ReviewState.APPROVED
+    assert review.author is None
+    assert review.body is None
+    assert review.commit_sha == "abc123"
+    assert review.submitted_at is not None
+    assert review.submitted_at.tzinfo is not None
+
+
+def test_pull_request_review_comment_preserves_code_location_metadata():
+    comment = GitHubPullRequestReviewComment(
+        repository=GitHubRepository(owner="owner", name="repo"),
+        id=22,
+        pull_request_number=123,
+        review_id=11,
+        author=GitHubUser(login="reviewer", id=2, html_url="https://github.com/reviewer"),
+        body="This should be closed.",
+        created_at=datetime(2026, 1, 4, 12, 0, tzinfo=UTC),
+        updated_at=datetime(2026, 1, 5, 12, 0, tzinfo=UTC),
+        html_url="https://github.com/owner/repo/pull/123#discussion_r22",
+        commit_sha="abc123",
+        original_commit_sha="def456",
+        path="src/session.py",
+        line=42,
+        original_line=40,
+        side="RIGHT",
+        start_line=39,
+        start_side="RIGHT",
+    )
+
+    assert comment.review_id == 11
+    assert comment.path == "src/session.py"
+    assert comment.line == 42
+    assert comment.original_commit_sha == "def456"
+    assert comment.author is not None
+    assert comment.author.login == "reviewer"
 
 
 def _pull_request(
