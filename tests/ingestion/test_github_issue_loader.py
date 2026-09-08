@@ -145,6 +145,11 @@ def test_get_issue_normalizes_single_issue():
                         {"name": "bug", "color": "d73a4a", "description": "Something is broken."},
                         {"name": "auth", "color": "5319e7", "description": None},
                     ],
+                    milestone={
+                        "number": 7,
+                        "title": "Authentication cleanup",
+                        "html_url": "https://github.com/owner/repo/milestone/7",
+                    },
                 ),
             )
         ]
@@ -163,6 +168,9 @@ def test_get_issue_normalizes_single_issue():
     assert issue.author is not None
     assert issue.author.login == "octocat"
     assert [label.name for label in issue.labels] == ["bug", "auth"]
+    assert issue.milestone is not None
+    assert issue.milestone.number == 7
+    assert issue.milestone.title == "Authentication cleanup"
     assert issue.created_at.tzinfo is not None
     assert issue.html_url == "https://github.com/owner/repo/issues/123"
 
@@ -192,12 +200,16 @@ def test_get_issue_rejects_invalid_number_without_request(number: int):
     assert requests.seen == []
 
 
-@pytest.mark.parametrize("case", ["missing_number", "invalid_timestamp", "bad_labels"])
+@pytest.mark.parametrize(
+    "case",
+    ["missing_number", "invalid_timestamp", "bad_labels", "bad_milestone"],
+)
 def test_malformed_issue_response_fails_clearly(case: str):
     payloads = {
         "missing_number": {"title": "Missing number"},
         "invalid_timestamp": _issue(1, "Invalid timestamp", created_at="not-a-date"),
         "bad_labels": _issue(1, "Bad labels", labels=["bug"]),
+        "bad_milestone": _issue(1, "Bad milestone", milestone="v1"),
     }
     requests = _capture_requests([httpx.Response(200, json=payloads[case])])
 
@@ -239,6 +251,7 @@ def _issue(
     updated_at: str = "2026-01-02T12:00:00Z",
     closed_at: str | None = None,
     labels: list[dict[str, object]] | None = None,
+    milestone: object = None,
 ) -> dict[str, object]:
     return {
         "number": number,
@@ -247,6 +260,7 @@ def _issue(
         "state": state,
         "user": {"login": "octocat", "id": 1, "html_url": "https://github.com/octocat"},
         "labels": labels if labels is not None else [],
+        "milestone": milestone,
         "created_at": created_at,
         "updated_at": updated_at,
         "closed_at": closed_at,

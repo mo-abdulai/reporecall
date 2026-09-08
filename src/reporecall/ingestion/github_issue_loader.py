@@ -3,7 +3,13 @@ from collections.abc import Mapping
 from pydantic import ValidationError
 
 from reporecall.github import GitHubClient, GitHubRepository, GitHubResponseError
-from reporecall.models import GitHubIssue, GitHubIssueLabel, GitHubUser, IssueState
+from reporecall.models import (
+    GitHubIssue,
+    GitHubIssueLabel,
+    GitHubMilestone,
+    GitHubUser,
+    IssueState,
+)
 
 
 class InvalidIssueLimitError(ValueError):
@@ -79,6 +85,10 @@ class GitHubIssueLoader:
                 "state": data["state"],
                 "author": self._parse_user(data.get("user"), endpoint=endpoint),
                 "labels": self._parse_labels(data["labels"], endpoint=endpoint),
+                "milestone": self._parse_milestone(
+                    data.get("milestone"),
+                    endpoint=endpoint,
+                ),
                 "created_at": data["created_at"],
                 "updated_at": data["updated_at"],
                 "closed_at": data.get("closed_at"),
@@ -157,6 +167,32 @@ class GitHubIssueLoader:
                 ) from exc
 
         return labels
+
+    @staticmethod
+    def _parse_milestone(value: object, *, endpoint: str) -> GitHubMilestone | None:
+        if value is None:
+            return None
+        if not isinstance(value, Mapping):
+            raise GitHubResponseError(
+                "GitHub issue milestone was not a JSON object.",
+                endpoint=endpoint,
+            )
+        try:
+            return GitHubMilestone(
+                number=value["number"],
+                title=value["title"],
+                html_url=value.get("html_url"),
+            )
+        except KeyError as exc:
+            raise GitHubResponseError(
+                f"GitHub issue milestone was missing required field: {exc.args[0]}.",
+                endpoint=endpoint,
+            ) from exc
+        except ValidationError as exc:
+            raise GitHubResponseError(
+                "GitHub issue milestone could not be parsed.",
+                endpoint=endpoint,
+            ) from exc
 
     @staticmethod
     def _is_pull_request(data: Mapping[str, object]) -> bool:

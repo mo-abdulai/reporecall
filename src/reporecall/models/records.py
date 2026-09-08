@@ -62,6 +62,14 @@ class GitHubIssueLabel(BaseModel):
     description: str | None = None
 
 
+class GitHubMilestone(BaseModel):
+    """Minimal GitHub milestone identity retained for deterministic metadata."""
+
+    number: int = Field(gt=0)
+    title: str = Field(min_length=1)
+    html_url: str | None = None
+
+
 class GitHubIssue(BaseModel):
     """Normalized GitHub issue data from a repository issues endpoint."""
 
@@ -72,6 +80,7 @@ class GitHubIssue(BaseModel):
     state: IssueState
     author: GitHubUser | None
     labels: list[GitHubIssueLabel]
+    milestone: GitHubMilestone | None = None
     created_at: datetime
     updated_at: datetime
     closed_at: datetime | None
@@ -165,6 +174,7 @@ class GitHubPullRequest(BaseModel):
     state: PullRequestState
     author: GitHubUser | None
     labels: list[GitHubIssueLabel]
+    milestone: GitHubMilestone | None = None
     draft: bool
     locked: bool
     created_at: datetime

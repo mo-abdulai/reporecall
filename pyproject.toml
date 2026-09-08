@@ -10,6 +10,7 @@ dependencies = [
     "pydantic>=2.13.5",
     "pydantic-settings>=2.15.0",
     "python-dotenv>=1.2.3",
+    "sentence-transformers>=5,<6",
 ]
 
 [build-system]
@@ -26,6 +27,15 @@ dev = [
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
+
+[tool.uv]
+constraint-dependencies = [
+    "numpy<2 ; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+    "transformers<5",
+]
+required-environments = [
+    "sys_platform == 'darwin' and platform_machine == 'x86_64'",
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]

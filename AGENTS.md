@@ -274,13 +274,54 @@ Engineering event construction also belongs in processing and must:
 * use stable anchors, event identifiers, artifact ordering, and event ordering
 * defer semantic event classification to metadata processing
 
+Deterministic event metadata extraction must:
+
+* operate entirely offline without mutating `EngineeringEvent`
+* return a separate immutable metadata model
+* derive values only from normalized event records
+* use explicit path classifiers and extension-to-language mappings
+* preserve source identity instead of reconciling people heuristically
+* define precedence where GitHub and local Git expose overlapping statistics
+* remain separate from semantic classification and retrieval-document generation
+
+Retrieval-document generation must:
+
+* operate entirely offline from a supplied `EngineeringEvent` and matching `EventMetadata`
+* produce one deterministic document per event without chunking
+* preserve typed section boundaries as the source of canonical rendered text
+* preserve source-authored bodies, comments, commit messages, stack traces, and patches without semantic rewriting
+* retain lightweight artifact provenance and real source URLs without fabricating links
+* prevent obvious duplicate GitHub/local commit and changed-file rendering while retaining richer local patches and both source identities
+* group multiple evidence sources for readability without mutating or collapsing the underlying relationships
+* keep direct and contextual relationships visibly distinct
+* avoid current-time fields, semantic inference, embeddings, retrieval, database, and external-service calls
+
+Retrieval chunking must:
+
+* operate entirely offline over structured `RetrievalDocument.sections`
+* keep every chunk within exactly one document section and preserve its section ID and type
+* use deterministic paragraph, line, word, and character boundaries for prose without semantic rewriting
+* preserve diff headers, hunk boundaries, line markers, and configurable line overlap for patches
+* retain document, event, repository, artifact, and structured metadata provenance
+* use stable content-derived chunk identities and section-local chunk indices
+* remain separate from tokenizers, embeddings, vector storage, search, ranking, and generation
+
 ### Documents
 
 Responsible for converting normalized engineering history into retrieval-ready documents.
 
 ### Embeddings
 
-Responsible only for embedding documents and queries.
+Responsible for converting retrieval-ready chunk text into validated dense vectors.
+
+Chunk embedding must:
+
+* embed `RetrievalChunk.text` exactly, without rewriting or preprocessing it
+* keep ML-library model execution behind a small backend interface
+* preserve chunk, document, event, repository, section, model, normalization, and source-text identities
+* validate output count, dimensions, and finite vector values before producing records
+* keep unit tests network-independent and free from real model downloads
+* remain separate from vector persistence, indexing, similarity search, and query retrieval
 
 ### Storage
 
@@ -891,6 +932,10 @@ Only describe functionality as implemented when it actually exists.
 Planned functionality must be clearly labeled as planned or future work.
 
 Do not add phase-completion checklists to README.md.
+
+Do not modify README.md for routine phases, internal models, tests, implementation
+details, or coverage changes. Update it only when the public purpose, setup, public
+usage, major architecture, or a major user-facing capability materially changes.
 
 ---
 

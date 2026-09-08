@@ -127,6 +127,11 @@ def test_get_pull_request_normalizes_single_detail_response():
                     head_repo_owner="contributor",
                     head_repo_name="fork",
                     labels=[{"name": "bug", "color": "d73a4a", "description": "Something is broken."}],
+                    milestone={
+                        "number": 8,
+                        "title": "Session stability",
+                        "html_url": "https://github.com/owner/repo/milestone/8",
+                    },
                 ),
             )
         ]
@@ -145,6 +150,9 @@ def test_get_pull_request_normalizes_single_detail_response():
     assert pull_request.author is not None
     assert pull_request.author.login == "octocat"
     assert [label.name for label in pull_request.labels] == ["bug"]
+    assert pull_request.milestone is not None
+    assert pull_request.milestone.number == 8
+    assert pull_request.milestone.title == "Session stability"
     assert pull_request.merged_at is not None
     assert pull_request.is_merged is True
     assert pull_request.merge_commit_sha == "mergesha"
@@ -242,13 +250,23 @@ def test_get_pull_request_commits_normalizes_references_and_paginates():
     assert len(requests.seen) == 2
 
 
-@pytest.mark.parametrize("case", ["missing_number", "invalid_timestamp", "missing_head_sha", "bad_labels"])
+@pytest.mark.parametrize(
+    "case",
+    [
+        "missing_number",
+        "invalid_timestamp",
+        "missing_head_sha",
+        "bad_labels",
+        "bad_milestone",
+    ],
+)
 def test_malformed_pull_request_response_fails_clearly(case: str):
     payloads = {
         "missing_number": {"title": "Missing number"},
         "invalid_timestamp": _pull_request(1, "Bad timestamp", created_at="not-a-date"),
         "missing_head_sha": _pull_request(1, "Missing head sha", head_sha=None),
         "bad_labels": _pull_request(1, "Bad labels", labels=["bug"]),
+        "bad_milestone": _pull_request(1, "Bad milestone", milestone="v1"),
     }
     requests = _capture_requests([httpx.Response(200, json=payloads[case])])
 
@@ -330,6 +348,7 @@ def _pull_request(
     closed_at: str | None = None,
     merged_at: str | None = None,
     labels: list[dict[str, object]] | None = None,
+    milestone: object = None,
     head_repo_owner: str | None = "owner",
     head_repo_name: str | None = "repo",
     head_sha: str | None = "headsha",
@@ -347,6 +366,7 @@ def _pull_request(
         "state": state,
         "user": {"login": "octocat", "id": 1, "html_url": "https://github.com/octocat"},
         "labels": labels if labels is not None else [],
+        "milestone": milestone,
         "draft": draft,
         "locked": False,
         "created_at": created_at,

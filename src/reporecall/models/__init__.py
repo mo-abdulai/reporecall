@@ -1,3 +1,9 @@
+from reporecall.models.embeddings import ChunkEmbedding
+from reporecall.models.event_metadata import (
+    EventActor,
+    EventActorType,
+    EventMetadata,
+)
 from reporecall.models.events import EngineeringEvent
 from reporecall.models.github_evidence import (
     GitHubCommitPullRequestAssociation,
@@ -13,6 +19,7 @@ from reporecall.models.records import (
     GitHubIssue,
     GitHubIssueComment,
     GitHubIssueLabel,
+    GitHubMilestone,
     GitHubPullRequest,
     GitHubPullRequestFile,
     GitHubPullRequestFileStatus,
@@ -30,13 +37,24 @@ from reporecall.models.relationships import (
     RelationshipEvidenceType,
     RelationshipType,
 )
+from reporecall.models.retrieval_chunks import RetrievalChunk
+from reporecall.models.retrieval_documents import (
+    RetrievalDocument,
+    RetrievalDocumentSection,
+    RetrievalSectionType,
+    RetrievalSource,
+)
 
 __all__ = [
     "ArtifactReference",
     "ArtifactType",
     "ChangedFile",
+    "ChunkEmbedding",
     "EngineeringEvent",
     "EngineeringRelationship",
+    "EventActor",
+    "EventActorType",
+    "EventMetadata",
     "FileChangeType",
     "GitCommit",
     "GitHubBranchReference",
@@ -45,6 +63,7 @@ __all__ = [
     "GitHubIssue",
     "GitHubIssueComment",
     "GitHubIssueLabel",
+    "GitHubMilestone",
     "GitHubPullRequest",
     "GitHubPullRequestFile",
     "GitHubPullRequestFileStatus",
@@ -57,5 +76,10 @@ __all__ = [
     "PullRequestState",
     "RelationshipEvidenceType",
     "RelationshipType",
+    "RetrievalChunk",
+    "RetrievalDocument",
+    "RetrievalDocumentSection",
+    "RetrievalSectionType",
+    "RetrievalSource",
     "ReviewState",
 ]

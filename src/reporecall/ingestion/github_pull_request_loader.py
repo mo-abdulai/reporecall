@@ -7,6 +7,7 @@ from reporecall.models import (
     GitHubBranchReference,
     GitHubCommitReference,
     GitHubIssueLabel,
+    GitHubMilestone,
     GitHubPullRequest,
     GitHubPullRequestFile,
     GitHubPullRequestFileStatus,
@@ -106,6 +107,10 @@ class GitHubPullRequestLoader:
                 "state": data["state"],
                 "author": self._parse_user(data.get("user"), endpoint=endpoint),
                 "labels": self._parse_labels(data.get("labels", []), endpoint=endpoint),
+                "milestone": self._parse_milestone(
+                    data.get("milestone"),
+                    endpoint=endpoint,
+                ),
                 "draft": data.get("draft", False),
                 "locked": data["locked"],
                 "created_at": data["created_at"],
@@ -323,6 +328,32 @@ class GitHubPullRequestLoader:
                 ) from exc
 
         return labels
+
+    @staticmethod
+    def _parse_milestone(value: object, *, endpoint: str) -> GitHubMilestone | None:
+        if value is None:
+            return None
+        if not isinstance(value, Mapping):
+            raise GitHubResponseError(
+                "GitHub pull request milestone was not a JSON object.",
+                endpoint=endpoint,
+            )
+        try:
+            return GitHubMilestone(
+                number=value["number"],
+                title=value["title"],
+                html_url=value.get("html_url"),
+            )
+        except KeyError as exc:
+            raise GitHubResponseError(
+                f"GitHub pull request milestone was missing required field: {exc.args[0]}.",
+                endpoint=endpoint,
+            ) from exc
+        except ValidationError as exc:
+            raise GitHubResponseError(
+                "GitHub pull request milestone could not be parsed.",
+                endpoint=endpoint,
+            ) from exc
 
     @staticmethod
     def _normalize_file_status(value: object) -> GitHubPullRequestFileStatus:
