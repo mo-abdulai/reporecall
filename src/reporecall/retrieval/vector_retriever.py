@@ -2,13 +2,14 @@ import hashlib
 from collections.abc import Mapping
 
 from reporecall.embeddings import EmbeddingBackend
-from reporecall.models import RetrievalChunk, VectorSearchHit
+from reporecall.models import MetadataFilter, RetrievalChunk, VectorSearchHit
 from reporecall.retrieval.exceptions import (
     RetrievalError,
     VectorIndexCompatibilityError,
     VectorIndexError,
 )
 from reporecall.retrieval.faiss_index import FaissVectorIndex
+from reporecall.retrieval.metadata_filter import filter_chunk_ids
 
 
 class VectorRetriever:
@@ -30,8 +31,14 @@ class VectorRetriever:
                     "Chunk lookup keys must match their RetrievalChunk chunk IDs."
                 )
 
-    def search(self, query: str, *, k: int = 5) -> list[VectorSearchHit]:
-        """Return top-k chunks for one unmodified natural-language query."""
+    def search(
+        self,
+        query: str,
+        *,
+        k: int = 5,
+        metadata_filter: MetadataFilter | None = None,
+    ) -> list[VectorSearchHit]:
+        """Return top-k chunks after optional pre-ranking metadata filtering."""
 
         if not query.strip():
             raise RetrievalError("Search query must not be blank.")
@@ -52,13 +59,47 @@ class VectorRetriever:
                 "Query and indexed embeddings must both be normalized."
             )
 
+        missing_chunk_ids = [
+            chunk_id
+            for chunk_id in manifest.chunk_ids
+            if chunk_id not in self._chunks
+        ]
+        if missing_chunk_ids:
+            raise VectorIndexError(
+                f"Indexed chunk {missing_chunk_ids[0]!r} is missing from the chunk lookup."
+            )
+
+        candidate_chunk_ids: tuple[str, ...] | None = None
+        if metadata_filter is not None and not metadata_filter.is_empty:
+            indexed_ids = set(manifest.chunk_ids)
+            ordered_chunks = [self._chunks[chunk_id] for chunk_id in manifest.chunk_ids]
+            ordered_chunks.extend(
+                self._chunks[chunk_id]
+                for chunk_id in sorted(set(self._chunks) - indexed_ids)
+            )
+            candidate_chunk_ids = filter_chunk_ids(ordered_chunks, metadata_filter)
+            if not candidate_chunk_ids:
+                return []
+            unindexed_candidate_ids = sorted(
+                set(candidate_chunk_ids) - indexed_ids
+            )
+            if unindexed_candidate_ids:
+                raise VectorIndexError(
+                    f"Candidate chunk ID {unindexed_candidate_ids[0]!r} "
+                    "is missing from the vector index."
+                )
+
         query_vectors = self.backend.embed([query])
         if len(query_vectors) != 1:
             raise RetrievalError(
                 "Embedding backend must return exactly one vector for one query."
             )
 
-        matches = self.index.search(query_vectors[0], k=k)
+        matches = self.index.search(
+            query_vectors[0],
+            k=k,
+            candidate_chunk_ids=candidate_chunk_ids,
+        )
         hits: list[VectorSearchHit] = []
         for match in matches:
             chunk = self._chunks.get(match.chunk_id)

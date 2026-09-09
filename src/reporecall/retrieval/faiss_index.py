@@ -39,6 +39,7 @@ class FaissVectorIndex:
         self._faiss = _load_faiss_module()
         self._index: _FaissIndex | None = None
         self._manifest: VectorIndexManifest | None = None
+        self._vectors: NDArray[np.float32] | None = None
 
     @property
     def manifest(self) -> VectorIndexManifest | None:
@@ -65,6 +66,7 @@ class FaissVectorIndex:
         if not records:
             self._index = None
             self._manifest = None
+            self._vectors = None
             return
 
         manifest = _manifest_for(records)
@@ -83,42 +85,95 @@ class FaissVectorIndex:
 
         self._index = index
         self._manifest = manifest
+        self._vectors = matrix.copy()
 
     def search(
         self,
         query_vector: Sequence[float],
         *,
         k: int,
+        candidate_chunk_ids: Sequence[str] | None = None,
     ) -> list[VectorIndexMatch]:
-        """Return exact inner-product matches with stable one-based ranks."""
+        """Return exact inner-product matches over all or selected chunk IDs."""
 
         if k <= 0:
             raise VectorIndexError("Search result count k must be greater than zero.")
         if self._index is None or self._manifest is None:
             return []
 
+        candidate_rows: tuple[int, ...] | None = None
+        if candidate_chunk_ids is not None:
+            candidate_rows = _candidate_rows(self._manifest, candidate_chunk_ids)
+            if not candidate_rows:
+                return []
+
         query = _query_matrix(query_vector, dimension=self._manifest.dimension)
-        result_count = min(k, self._manifest.vector_count)
+        if candidate_rows is None or len(candidate_rows) == self._manifest.vector_count:
+            global_rows = tuple(range(self._manifest.vector_count))
+            result_count = min(k, self._manifest.vector_count)
+            return self._search_index(
+                self._index,
+                query,
+                global_rows=global_rows,
+                result_count=result_count,
+                limit=k,
+            )
+
+        if self._vectors is None:
+            raise VectorIndexError("FAISS candidate search has no retained vector matrix.")
+        candidate_matrix = np.ascontiguousarray(
+            self._vectors[np.asarray(candidate_rows, dtype=np.intp)]
+        )
         try:
-            scores, row_ids = self._index.search(query, result_count)
+            candidate_index = self._faiss.IndexFlatIP(self._manifest.dimension)
+            candidate_index.add(candidate_matrix)
+        except Exception as exc:
+            raise VectorIndexError("FAISS failed while building a candidate index.") from exc
+        if candidate_index.ntotal != len(candidate_rows):
+            raise VectorIndexError(
+                "FAISS candidate vector count does not match the selected rows."
+            )
+
+        return self._search_index(
+            candidate_index,
+            query,
+            global_rows=candidate_rows,
+            result_count=len(candidate_rows),
+            limit=k,
+        )
+
+    def _search_index(
+        self,
+        index: _FaissIndex,
+        query: NDArray[np.float32],
+        *,
+        global_rows: tuple[int, ...],
+        result_count: int,
+        limit: int,
+    ) -> list[VectorIndexMatch]:
+        if self._manifest is None:
+            raise VectorIndexError("FAISS search has no index manifest.")
+        try:
+            scores, row_ids = index.search(query, result_count)
         except Exception as exc:
             raise VectorIndexError("FAISS failed while searching the vector index.") from exc
 
         candidates: list[tuple[str, str, float]] = []
-        for row_id_value, score_value in zip(row_ids[0], scores[0], strict=True):
-            row_id = int(row_id_value)
-            if row_id < 0:
+        for local_row_value, score_value in zip(row_ids[0], scores[0], strict=True):
+            local_row = int(local_row_value)
+            if local_row < 0:
                 continue
-            if row_id >= self._manifest.vector_count:
+            if local_row >= len(global_rows):
                 raise VectorIndexError("FAISS returned an invalid vector row ID.")
 
+            global_row = global_rows[local_row]
             score = float(score_value)
             if not math.isfinite(score):
                 raise VectorIndexError("FAISS returned a non-finite similarity score.")
             candidates.append(
                 (
-                    self._manifest.chunk_ids[row_id],
-                    self._manifest.source_text_sha256[row_id],
+                    self._manifest.chunk_ids[global_row],
+                    self._manifest.source_text_sha256[global_row],
                     score,
                 )
             )
@@ -131,8 +186,36 @@ class FaissVectorIndex:
                 score=score,
                 rank=rank,
             )
-            for rank, (chunk_id, source_hash, score) in enumerate(candidates, start=1)
+            for rank, (chunk_id, source_hash, score) in enumerate(
+                candidates[:limit],
+                start=1,
+            )
         ]
+
+
+def _candidate_rows(
+    manifest: VectorIndexManifest,
+    candidate_chunk_ids: Sequence[str],
+) -> tuple[int, ...]:
+    candidate_ids = tuple(candidate_chunk_ids)
+    if any(not chunk_id.strip() for chunk_id in candidate_ids):
+        raise VectorIndexError("Candidate chunk IDs must not be blank.")
+    if len(set(candidate_ids)) != len(candidate_ids):
+        raise VectorIndexError("Candidate chunk IDs must be unique.")
+
+    indexed_ids = set(manifest.chunk_ids)
+    missing_ids = sorted(set(candidate_ids) - indexed_ids)
+    if missing_ids:
+        raise VectorIndexError(
+            f"Candidate chunk ID {missing_ids[0]!r} is missing from the vector index."
+        )
+
+    selected = set(candidate_ids)
+    return tuple(
+        row_id
+        for row_id, chunk_id in enumerate(manifest.chunk_ids)
+        if chunk_id in selected
+    )
 
 
 def _manifest_for(embeddings: Sequence[ChunkEmbedding]) -> VectorIndexManifest:

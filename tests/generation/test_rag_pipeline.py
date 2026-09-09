@@ -14,6 +14,7 @@ from reporecall.generation import (
 from reporecall.github import GitHubRepository
 from reporecall.models import (
     EventMetadata,
+    MetadataFilter,
     RetrievalChunk,
     RetrievalSectionType,
     VectorSearchHit,
@@ -50,6 +51,22 @@ class FakeLLMBackend:
         if self.error is not None:
             raise self.error
         return self.answer
+
+
+class FilterAwareFakeRetriever:
+    def __init__(self, hits: Sequence[VectorSearchHit]) -> None:
+        self.hits = list(hits)
+        self.calls: list[tuple[str, int, MetadataFilter | None]] = []
+
+    def search(
+        self,
+        query: str,
+        *,
+        k: int = 5,
+        metadata_filter: MetadataFilter | None = None,
+    ) -> list[VectorSearchHit]:
+        self.calls.append((query, k, metadata_filter))
+        return self.hits[:k]
 
 
 def test_pipeline_runs_retrieval_context_prompt_and_generation_end_to_end():
@@ -193,6 +210,41 @@ def test_pipeline_is_deterministic_and_does_not_mutate_hits():
 
     assert first == second
     assert [hit.model_dump() for hit in hits] == original
+
+
+def test_pipeline_passes_explicit_metadata_filter_only_to_retrieval():
+    metadata_filter = MetadataFilter(
+        languages=("Python",),
+        labels=("bug",),
+    )
+    retriever = FilterAwareFakeRetriever(
+        [_hit("chunk-1", rank=1, score=1.0, content="source")]
+    )
+    llm = FakeLLMBackend("Supported [E1].")
+    pipeline = _pipeline(retriever, llm)
+
+    answer = pipeline.answer("query", metadata_filter=metadata_filter)
+
+    assert retriever.calls == [("query", 5, metadata_filter)]
+    assert len(llm.calls) == 1
+    assert "python" not in llm.calls[0][0].casefold()
+    assert "bug" not in llm.calls[0][1].casefold()
+    assert answer.insufficient_evidence is False
+
+
+def test_empty_filtered_retrieval_reuses_insufficient_evidence_behavior():
+    metadata_filter = MetadataFilter(languages=("Go",))
+    retriever = FilterAwareFakeRetriever([])
+    llm = FakeLLMBackend()
+    pipeline = _pipeline(retriever, llm)
+
+    answer = pipeline.answer("query", metadata_filter=metadata_filter)
+
+    assert retriever.calls == [("query", 5, metadata_filter)]
+    assert answer.answer == INSUFFICIENT_EVIDENCE_ANSWER
+    assert answer.insufficient_evidence is True
+    assert answer.evidence == ()
+    assert llm.calls == []
 
 
 def _pipeline(

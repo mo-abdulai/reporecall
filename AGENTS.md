@@ -352,6 +352,24 @@ The initial dense retrieval baseline must:
 * validate finite vectors, finite scores, duplicate identities, and stale source-text hashes
 * keep dense retrieval separate from metadata filtering, keyword retrieval, reranking, context construction, and RAG
 
+Structured metadata filtering must:
+
+* select eligible chunks from existing `EventMetadata` before vector ranking
+* avoid parsing chunk text or repeating metadata extraction during retrieval
+* use AND semantics across populated fields and OR semantics within one field
+* constrain eligibility without boosting or otherwise modifying dense similarity scores
+* preserve the raw query independently from filter values
+* leave natural-language filter extraction to future query-understanding logic
+
+The initial lexical retrieval baseline must:
+
+* index source-faithful `RetrievalChunk.text` without rewriting chunk content
+* use deterministic engineering-aware tokenization that preserves complete technical identifiers
+* remain independently usable without embeddings, vector similarity, or FAISS
+* apply structured metadata eligibility before lexical top-k selection
+* preserve raw BM25 scores as lexical relevance scores distinct from dense similarity scores
+* leave dense and lexical score or rank fusion to a separate retrieval layer
+
 ### Generation
 
 Responsible for:

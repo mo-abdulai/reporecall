@@ -54,6 +54,116 @@ def test_index_flat_ip_exact_ranking_and_scores():
     assert all(math.isfinite(match.score) for match in matches)
 
 
+def test_candidate_search_ranks_only_selected_vectors_and_assigns_new_ranks():
+    index = FaissVectorIndex()
+    index.build(
+        [
+            _embedding("global-first", (1.0, 0.0)),
+            _embedding("candidate-second", (0.8, 0.6)),
+            _embedding("candidate-third", (0.6, 0.8)),
+            _embedding("global-fourth", (0.0, 1.0)),
+        ]
+    )
+
+    matches = index.search(
+        (1.0, 0.0),
+        k=2,
+        candidate_chunk_ids=("candidate-third", "candidate-second"),
+    )
+
+    assert [match.chunk_id for match in matches] == [
+        "candidate-second",
+        "candidate-third",
+    ]
+    assert [match.rank for match in matches] == [1, 2]
+    assert [match.score for match in matches] == pytest.approx([0.8, 0.6])
+
+
+def test_all_candidates_match_is_equivalent_to_unfiltered_search():
+    index = FaissVectorIndex()
+    index.build(
+        [
+            _embedding("chunk-a", (1.0, 0.0)),
+            _embedding("chunk-b", (SQRT_HALF, SQRT_HALF)),
+            _embedding("chunk-c", (0.0, 1.0)),
+        ]
+    )
+
+    unfiltered = index.search((1.0, 0.0), k=3)
+    filtered = index.search(
+        (1.0, 0.0),
+        k=3,
+        candidate_chunk_ids=("chunk-c", "chunk-a", "chunk-b"),
+    )
+
+    assert filtered == unfiltered
+
+
+def test_candidate_search_returns_only_available_candidates_when_k_is_larger():
+    index = FaissVectorIndex()
+    index.build(
+        [
+            _embedding("chunk-a", (1.0, 0.0)),
+            _embedding("chunk-b", (0.0, 1.0)),
+            _embedding("chunk-c", (SQRT_HALF, SQRT_HALF)),
+        ]
+    )
+
+    matches = index.search(
+        (1.0, 0.0),
+        k=10,
+        candidate_chunk_ids=("chunk-b", "chunk-c"),
+    )
+
+    assert [match.chunk_id for match in matches] == ["chunk-c", "chunk-b"]
+
+
+def test_empty_candidate_selection_returns_without_validating_query_vector():
+    index = FaissVectorIndex()
+    index.build([_embedding("chunk-a", (1.0, 0.0))])
+
+    assert index.search((), k=1, candidate_chunk_ids=()) == []
+
+
+def test_candidate_ids_must_be_unique_and_present_in_the_index():
+    index = FaissVectorIndex()
+    index.build([_embedding("chunk-a", (1.0, 0.0))])
+
+    with pytest.raises(VectorIndexError, match="must be unique"):
+        index.search(
+            (1.0, 0.0),
+            k=1,
+            candidate_chunk_ids=("chunk-a", "chunk-a"),
+        )
+
+    with pytest.raises(VectorIndexError, match="missing from the vector index"):
+        index.search(
+            (1.0, 0.0),
+            k=1,
+            candidate_chunk_ids=("missing",),
+        )
+
+
+def test_candidate_ties_use_chunk_identity_not_candidate_input_order():
+    index = FaissVectorIndex()
+    index.build(
+        [
+            _embedding("chunk-c", (1.0, 0.0)),
+            _embedding("chunk-b", (1.0, 0.0)),
+            _embedding("chunk-a", (1.0, 0.0)),
+            _embedding("excluded", (0.0, 1.0)),
+        ]
+    )
+
+    matches = index.search(
+        (1.0, 0.0),
+        k=2,
+        candidate_chunk_ids=("chunk-c", "chunk-a", "chunk-b"),
+    )
+
+    assert [match.chunk_id for match in matches] == ["chunk-a", "chunk-b"]
+
+
 def test_manifest_preserves_input_row_order_and_source_hashes():
     embeddings = [
         _embedding("chunk-c", (1.0, 0.0), text="C"),
