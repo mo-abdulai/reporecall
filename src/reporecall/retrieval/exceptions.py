@@ -2,6 +2,10 @@ class RetrievalError(Exception):
     """Base error for retrieval failures."""
 
 
+class HybridRetrievalError(RetrievalError):
+    """Raised when hybrid candidate collection receives inconsistent results."""
+
+
 class VectorIndexError(RetrievalError):
     """Raised when a vector index cannot be built or searched safely."""
 

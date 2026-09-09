@@ -16,6 +16,11 @@ from reporecall.models.github_evidence import (
     GitHubTimelineEvidenceType,
     GitHubTimelineRelationshipEvidence,
 )
+from reporecall.models.hybrid_retrieval import (
+    HybridCandidate,
+    HybridRetrievalResult,
+    RetrievalBranch,
+)
 from reporecall.models.keyword_retrieval import (
     KeywordIndexMatch,
     KeywordSearchHit,
@@ -88,6 +93,8 @@ __all__ = [
     "GitHubTimelineEvidenceType",
     "GitHubTimelineRelationshipEvidence",
     "GitHubUser",
+    "HybridCandidate",
+    "HybridRetrievalResult",
     "IssueState",
     "KeywordIndexMatch",
     "KeywordSearchHit",
@@ -99,6 +106,7 @@ __all__ = [
     "RAGPrompt",
     "RelationshipEvidenceType",
     "RelationshipType",
+    "RetrievalBranch",
     "RetrievalChunk",
     "RetrievalDocument",
     "RetrievalDocumentSection",
