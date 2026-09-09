@@ -9,6 +9,7 @@ class Settings(BaseSettings):
 
     github_token: str | None = None
     github_api_url: str = "https://api.github.com"
+    openai_api_key: str | None = None
     repo_data_dir: Path = Path("data/repositories")
     cache_dir: Path = Path("data/cache")
 

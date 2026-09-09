@@ -5,6 +5,12 @@ from reporecall.models.event_metadata import (
     EventMetadata,
 )
 from reporecall.models.events import EngineeringEvent
+from reporecall.models.generation import (
+    RAGAnswer,
+    RAGContext,
+    RAGEvidence,
+    RAGPrompt,
+)
 from reporecall.models.github_evidence import (
     GitHubCommitPullRequestAssociation,
     GitHubTimelineEvidenceType,
@@ -36,6 +42,11 @@ from reporecall.models.relationships import (
     EngineeringRelationship,
     RelationshipEvidenceType,
     RelationshipType,
+)
+from reporecall.models.retrieval import (
+    VectorIndexManifest,
+    VectorIndexMatch,
+    VectorSearchHit,
 )
 from reporecall.models.retrieval_chunks import RetrievalChunk
 from reporecall.models.retrieval_documents import (
@@ -74,6 +85,10 @@ __all__ = [
     "GitHubUser",
     "IssueState",
     "PullRequestState",
+    "RAGAnswer",
+    "RAGContext",
+    "RAGEvidence",
+    "RAGPrompt",
     "RelationshipEvidenceType",
     "RelationshipType",
     "RetrievalChunk",
@@ -82,4 +97,7 @@ __all__ = [
     "RetrievalSectionType",
     "RetrievalSource",
     "ReviewState",
+    "VectorIndexManifest",
+    "VectorIndexMatch",
+    "VectorSearchHit",
 ]

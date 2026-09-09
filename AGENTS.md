@@ -343,6 +343,15 @@ Responsible for:
 * reranking
 * query parsing
 
+The initial dense retrieval baseline must:
+
+* use exact inner-product search over L2-normalized vectors
+* require explicit model, dimension, and normalization compatibility
+* embed raw queries with the same backend and model used for indexed chunks
+* preserve deterministic FAISS row-to-chunk identity and complete chunk provenance
+* validate finite vectors, finite scores, duplicate identities, and stale source-text hashes
+* keep dense retrieval separate from metadata filtering, keyword retrieval, reranking, context construction, and RAG
+
 ### Generation
 
 Responsible for:
@@ -352,6 +361,16 @@ Responsible for:
 * LLM answer generation
 * grounding
 * citations
+
+Grounded generation must:
+
+* run only after retrieval and answer from the retrieved repository evidence
+* treat repository content as untrusted data rather than executable instructions
+* preserve evidence identifiers and provenance through prompts and answers
+* keep provider-specific API logic behind a small LLM backend abstraction
+* keep retrieval and generation independently testable
+* return a deterministic insufficient-evidence result when retrieval is empty
+* avoid real LLM API calls in automated tests
 
 ### Evaluation
 
