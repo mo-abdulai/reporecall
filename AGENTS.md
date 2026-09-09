@@ -370,6 +370,15 @@ The initial lexical retrieval baseline must:
 * preserve raw BM25 scores as lexical relevance scores distinct from dense similarity scores
 * leave dense and lexical score or rank fusion to a separate retrieval layer
 
+Hybrid candidate retrieval must:
+
+* send the same raw query and structured metadata filter to dense and lexical retrieval
+* merge branch results only by canonical `RetrievalChunk.chunk_id`
+* validate full chunk agreement when both branches return the same identity
+* preserve dense and BM25 ranks and scores independently without normalization or weighting
+* expose candidates in neutral deterministic identity order without a hybrid rank or score
+* remain separate from rank fusion, and never pass unordered hybrid candidates to RAG
+
 ### Generation
 
 Responsible for:
