@@ -1,4 +1,5 @@
 import hashlib
+import math
 from collections.abc import Sequence
 
 import pytest
@@ -9,6 +10,7 @@ from reporecall.models import (
     ArtifactType,
     ChunkEmbedding,
     EventMetadata,
+    MetadataFilter,
     RetrievalChunk,
     RetrievalSectionType,
 )
@@ -234,6 +236,113 @@ def test_retrieval_is_stable_and_does_not_mutate_chunks():
     assert {key: chunk.model_dump() for key, chunk in chunks.items()} == original
 
 
+def test_none_and_empty_metadata_filters_preserve_unfiltered_behavior():
+    first_chunk = _chunk("chunk-a", "first", languages=("Python",))
+    second_chunk = _chunk("chunk-b", "second", languages=("TypeScript",))
+    backend = FakeQueryBackend((1.0, 0.0))
+    retriever = VectorRetriever(
+        index=_index_for(
+            [(first_chunk, (1.0, 0.0)), (second_chunk, (0.0, 1.0))]
+        ),
+        backend=backend,
+        chunks={first_chunk.chunk_id: first_chunk, second_chunk.chunk_id: second_chunk},
+    )
+
+    unfiltered = retriever.search("query", k=2)
+    empty_filter = retriever.search(
+        "query",
+        k=2,
+        metadata_filter=MetadataFilter(),
+    )
+
+    assert empty_filter == unfiltered
+    assert backend.calls == [["query"], ["query"]]
+
+
+def test_no_metadata_candidates_returns_before_query_embedding():
+    chunk = _chunk("chunk-a", "source", languages=("Python",))
+    backend = FakeQueryBackend()
+    retriever = VectorRetriever(
+        index=_index_for([(chunk, (1.0, 0.0))]),
+        backend=backend,
+        chunks={chunk.chunk_id: chunk},
+    )
+
+    hits = retriever.search(
+        "connection leak",
+        metadata_filter=MetadataFilter(languages=("Go",)),
+    )
+
+    assert hits == []
+    assert backend.calls == []
+
+
+def test_filtering_occurs_before_ranking_instead_of_after_global_top_k():
+    global_first = _chunk("a", "first", labels=("feature",))
+    global_second = _chunk("b", "second", labels=("feature",))
+    candidate_first = _chunk("c", "third", labels=("bug",))
+    candidate_second = _chunk("d", "fourth", labels=("bug",))
+    values = [
+        (global_first, (1.0, 0.0)),
+        (global_second, (0.9, math.sqrt(0.19))),
+        (candidate_first, (0.8, 0.6)),
+        (candidate_second, (0.7, math.sqrt(0.51))),
+    ]
+    backend = FakeQueryBackend((1.0, 0.0))
+    retriever = VectorRetriever(
+        index=_index_for(values),
+        backend=backend,
+        chunks={chunk.chunk_id: chunk for chunk, _vector in values},
+    )
+    query = "connection leak after retry worker crash"
+
+    hits = retriever.search(
+        query,
+        k=2,
+        metadata_filter=MetadataFilter(labels=("bug",)),
+    )
+
+    assert [hit.chunk.chunk_id for hit in hits] == ["c", "d"]
+    assert [hit.rank for hit in hits] == [1, 2]
+    assert [hit.score for hit in hits] == pytest.approx([0.8, 0.7])
+    assert backend.calls == [[query]]
+
+
+def test_filtered_search_preserves_source_hash_validation():
+    original = _chunk("chunk-a", "original", labels=("bug",))
+    stale = original.model_copy(update={"text": "changed retrieval text"})
+    retriever = VectorRetriever(
+        index=_index_for([(original, (1.0, 0.0))]),
+        backend=FakeQueryBackend(),
+        chunks={stale.chunk_id: stale},
+    )
+
+    with pytest.raises(VectorIndexError, match="stale source text"):
+        retriever.search(
+            "query",
+            metadata_filter=MetadataFilter(labels=("bug",)),
+        )
+
+
+def test_matching_chunk_missing_from_vector_index_fails_clearly():
+    indexed = _chunk("indexed", "indexed", labels=("feature",))
+    unindexed = _chunk("unindexed", "unindexed", labels=("bug",))
+    backend = FakeQueryBackend()
+    retriever = VectorRetriever(
+        index=_index_for([(indexed, (1.0, 0.0))]),
+        backend=backend,
+        chunks={indexed.chunk_id: indexed, unindexed.chunk_id: unindexed},
+    )
+
+    with pytest.raises(VectorIndexError, match="missing from the vector index"):
+        retriever.search(
+            "query",
+            metadata_filter=MetadataFilter(labels=("bug",)),
+        )
+
+    assert backend.calls == []
+
+
 def _index_for(
     values: Sequence[tuple[RetrievalChunk, tuple[float, ...]]],
 ) -> FaissVectorIndex:
@@ -261,22 +370,31 @@ def _index_for(
     return index
 
 
-def _chunk(chunk_id: str, content: str, *, artifact: bool = False) -> RetrievalChunk:
-    repository = GitHubRepository(owner="owner", name="repo")
+def _chunk(
+    chunk_id: str,
+    content: str,
+    *,
+    artifact: bool = False,
+    repository: GitHubRepository | None = None,
+    section_type: RetrievalSectionType = RetrievalSectionType.ISSUE,
+    labels: Sequence[str] = (),
+    languages: Sequence[str] = (),
+) -> RetrievalChunk:
+    active_repository = repository or GitHubRepository(owner="owner", name="repo")
     return RetrievalChunk(
         chunk_id=chunk_id,
         document_id="document-1",
         event_id="event-1",
-        repository=repository,
+        repository=active_repository,
         section_id=f"section-{chunk_id}",
-        section_type=RetrievalSectionType.ISSUE,
+        section_type=section_type,
         chunk_index=0,
         content=content,
         text=f"Repository: owner/repo\nSection: Issue\n\n{content}",
         artifact=(
             ArtifactReference(
                 artifact_type=ArtifactType.ISSUE,
-                repository=repository,
+                repository=active_repository,
                 identifier="10",
             )
             if artifact
@@ -284,7 +402,9 @@ def _chunk(chunk_id: str, content: str, *, artifact: bool = False) -> RetrievalC
         ),
         metadata=EventMetadata(
             event_id="event-1",
-            repository=repository,
+            repository=active_repository,
             issue_numbers=(10,),
+            labels=tuple(labels),
+            languages=tuple(languages),
         ),
     )

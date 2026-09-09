@@ -5,7 +5,7 @@ from reporecall.generation.config import RAGConfig
 from reporecall.generation.context_builder import RAGContextBuilder
 from reporecall.generation.exceptions import RAGResponseError
 from reporecall.generation.prompt_builder import RAGPromptBuilder
-from reporecall.models import RAGAnswer, RAGContext
+from reporecall.models import MetadataFilter, RAGAnswer, RAGContext
 from reporecall.retrieval import VectorRetriever
 
 INSUFFICIENT_EVIDENCE_ANSWER = (
@@ -32,13 +32,26 @@ class RAGPipeline:
         self.llm_backend = llm_backend
         self.config = config or RAGConfig()
 
-    def answer(self, query: str) -> RAGAnswer:
+    def answer(
+        self,
+        query: str,
+        *,
+        metadata_filter: MetadataFilter | None = None,
+    ) -> RAGAnswer:
         """Answer one engineering-history question from retrieved evidence only."""
 
         if not query.strip():
             raise RAGResponseError("RAG query must not be blank.")
 
-        hits = self.retriever.search(query, k=self.config.top_k)
+        hits = (
+            self.retriever.search(query, k=self.config.top_k)
+            if metadata_filter is None
+            else self.retriever.search(
+                query,
+                k=self.config.top_k,
+                metadata_filter=metadata_filter,
+            )
+        )
         if not hits:
             return RAGAnswer(
                 query=query,

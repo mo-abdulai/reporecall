@@ -16,6 +16,10 @@ from reporecall.models.github_evidence import (
     GitHubTimelineEvidenceType,
     GitHubTimelineRelationshipEvidence,
 )
+from reporecall.models.keyword_retrieval import (
+    KeywordIndexMatch,
+    KeywordSearchHit,
+)
 from reporecall.models.records import (
     ChangedFile,
     FileChangeType,
@@ -55,6 +59,7 @@ from reporecall.models.retrieval_documents import (
     RetrievalSectionType,
     RetrievalSource,
 )
+from reporecall.models.retrieval_filters import MetadataFilter
 
 __all__ = [
     "ArtifactReference",
@@ -84,6 +89,9 @@ __all__ = [
     "GitHubTimelineRelationshipEvidence",
     "GitHubUser",
     "IssueState",
+    "KeywordIndexMatch",
+    "KeywordSearchHit",
+    "MetadataFilter",
     "PullRequestState",
     "RAGAnswer",
     "RAGContext",
