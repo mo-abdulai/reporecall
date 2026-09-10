@@ -16,6 +16,10 @@ from reporecall.models.github_evidence import (
     GitHubTimelineEvidenceType,
     GitHubTimelineRelationshipEvidence,
 )
+from reporecall.models.hybrid_ranking import (
+    HybridSearchHit,
+    RankedHybridRetrievalResult,
+)
 from reporecall.models.hybrid_retrieval import (
     HybridCandidate,
     HybridRetrievalResult,
@@ -95,6 +99,7 @@ __all__ = [
     "GitHubUser",
     "HybridCandidate",
     "HybridRetrievalResult",
+    "HybridSearchHit",
     "IssueState",
     "KeywordIndexMatch",
     "KeywordSearchHit",
@@ -104,6 +109,7 @@ __all__ = [
     "RAGContext",
     "RAGEvidence",
     "RAGPrompt",
+    "RankedHybridRetrievalResult",
     "RelationshipEvidenceType",
     "RelationshipType",
     "RetrievalBranch",

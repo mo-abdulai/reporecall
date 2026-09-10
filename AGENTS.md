@@ -379,6 +379,14 @@ Hybrid candidate retrieval must:
 * expose candidates in neutral deterministic identity order without a hybrid rank or score
 * remain separate from rank fusion, and never pass unordered hybrid candidates to RAG
 
+Baseline hybrid rank fusion must:
+
+* use branch ranks rather than directly combining incomparable dense and BM25 scores
+* preserve original branch ranks and raw scores unchanged for diagnostics and evaluation
+* calculate standard symmetric reciprocal-rank contributions without hidden branch weighting
+* break equal fusion scores by neutral canonical chunk identity rather than branch preference
+* remain offline and separate from retrieval, reranking, query processing, and RAG
+
 ### Generation
 
 Responsible for:
