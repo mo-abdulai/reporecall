@@ -18,6 +18,10 @@ from reporecall.retrieval.metadata_filter import (
     MetadataFilterMatcher,
     filter_chunk_ids,
 )
+from reporecall.retrieval.reciprocal_rank_fusion import (
+    ReciprocalRankFusion,
+    ReciprocalRankFusionConfig,
+)
 from reporecall.retrieval.vector_retriever import VectorRetriever
 
 __all__ = [
@@ -32,6 +36,8 @@ __all__ = [
     "KeywordRetrievalError",
     "KeywordRetriever",
     "MetadataFilterMatcher",
+    "ReciprocalRankFusion",
+    "ReciprocalRankFusionConfig",
     "RetrievalError",
     "VectorIndexCompatibilityError",
     "VectorIndexError",
