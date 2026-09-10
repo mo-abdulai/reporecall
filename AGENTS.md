@@ -387,6 +387,16 @@ Baseline hybrid rank fusion must:
 * break equal fusion scores by neutral canonical chunk identity rather than branch preference
 * remain offline and separate from retrieval, reranking, query processing, and RAG
 
+Cross-encoder reranking must:
+
+* operate only as a second stage over a bounded prefix of fused retrieval results
+* score exact query and `RetrievalChunk.text` pairs without rewriting either input
+* use the raw finite cross-encoder score alone for final order without blending prior scores
+* preserve all prior dense, BM25, and RRF ranks, scores, contributions, and chunk provenance
+* break equal reranker scores by canonical chunk identity rather than earlier ranking signals
+* load production models lazily and keep automated tests free from model downloads
+* remain separate from corpus retrieval, query understanding, context construction, and RAG
+
 ### Generation
 
 Responsible for:

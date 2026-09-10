@@ -20,3 +20,15 @@ class KeywordRetrievalError(RetrievalError):
 
 class BM25IndexError(KeywordRetrievalError):
     """Raised when a BM25 index is invalid or fails during scoring."""
+
+
+class RerankingError(RetrievalError):
+    """Base error for cross-encoder reranking failures."""
+
+
+class RerankerModelError(RerankingError):
+    """Raised when a reranker model cannot load or run inference."""
+
+
+class RerankerOutputError(RerankingError):
+    """Raised when backend scores do not satisfy the reranker contract."""

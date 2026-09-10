@@ -56,6 +56,10 @@ from reporecall.models.relationships import (
     RelationshipEvidenceType,
     RelationshipType,
 )
+from reporecall.models.reranking import (
+    RerankedRetrievalResult,
+    RerankedSearchHit,
+)
 from reporecall.models.retrieval import (
     VectorIndexManifest,
     VectorIndexMatch,
@@ -112,6 +116,8 @@ __all__ = [
     "RankedHybridRetrievalResult",
     "RelationshipEvidenceType",
     "RelationshipType",
+    "RerankedRetrievalResult",
+    "RerankedSearchHit",
     "RetrievalBranch",
     "RetrievalChunk",
     "RetrievalDocument",
