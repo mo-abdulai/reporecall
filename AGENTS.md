@@ -343,6 +343,16 @@ Responsible for:
 * reranking
 * query parsing
 
+Query understanding must:
+
+* remain separate from retrieval, reranking, context construction, and RAG
+* preserve the original query while producing a separate retrieval query
+* convert natural-language constraints only into fields already supported by `MetadataFilter`
+* conservatively keep ambiguous concepts in `retrieval_query` rather than creating restrictive filters
+* treat provider output as untrusted structured input that must pass deterministic domain validation
+* interpret search intent only and never answer the user's question
+* avoid routine README updates unless public purpose, setup, public usage, major architecture, or a major user-facing capability materially changes
+
 The initial dense retrieval baseline must:
 
 * use exact inner-product search over L2-normalized vectors
@@ -396,6 +406,15 @@ Cross-encoder reranking must:
 * break equal reranker scores by canonical chunk identity rather than earlier ranking signals
 * load production models lazily and keep automated tests free from model downloads
 * remain separate from corpus retrieval, query understanding, context construction, and RAG
+
+Relationship-aware context expansion must:
+
+* occur offline after ranked retrieval using explicit `EngineeringRelationship` records
+* never treat same-event membership alone as a relationship
+* remain bounded and one-hop by default, excluding weak/contextual references by default
+* preserve relationship direction, provenance, and original evidence types
+* keep expanded chunks separate from ranked seed evidence without fabricated scores or ranks
+* remain separate from retrieval execution, query understanding, and RAG integration
 
 ### Generation
 

@@ -1,3 +1,9 @@
+from reporecall.models.context_expansion import (
+    ContextExpansionReason,
+    ExpandedContextChunk,
+    ExpandedContextResult,
+    RelationshipTraversalDirection,
+)
 from reporecall.models.embeddings import ChunkEmbedding
 from reporecall.models.event_metadata import (
     EventActor,
@@ -29,6 +35,7 @@ from reporecall.models.keyword_retrieval import (
     KeywordIndexMatch,
     KeywordSearchHit,
 )
+from reporecall.models.query_understanding import UnderstoodQuery
 from reporecall.models.records import (
     ChangedFile,
     FileChangeType,
@@ -79,11 +86,14 @@ __all__ = [
     "ArtifactType",
     "ChangedFile",
     "ChunkEmbedding",
+    "ContextExpansionReason",
     "EngineeringEvent",
     "EngineeringRelationship",
     "EventActor",
     "EventActorType",
     "EventMetadata",
+    "ExpandedContextChunk",
+    "ExpandedContextResult",
     "FileChangeType",
     "GitCommit",
     "GitHubBranchReference",
@@ -115,6 +125,7 @@ __all__ = [
     "RAGPrompt",
     "RankedHybridRetrievalResult",
     "RelationshipEvidenceType",
+    "RelationshipTraversalDirection",
     "RelationshipType",
     "RerankedRetrievalResult",
     "RerankedSearchHit",
@@ -125,6 +136,7 @@ __all__ = [
     "RetrievalSectionType",
     "RetrievalSource",
     "ReviewState",
+    "UnderstoodQuery",
     "VectorIndexManifest",
     "VectorIndexMatch",
     "VectorSearchHit",
