@@ -29,6 +29,14 @@ from reporecall.retrieval.reciprocal_rank_fusion import (
     ReciprocalRankFusion,
     ReciprocalRankFusionConfig,
 )
+from reporecall.retrieval.relationship_context_expander import (
+    RelationshipContextExpander,
+    RelationshipContextExpansionConfig,
+)
+from reporecall.retrieval.relationship_context_index import (
+    RelationshipContextError,
+    RelationshipContextIndex,
+)
 from reporecall.retrieval.reranker_backend import (
     DEFAULT_CROSS_ENCODER_MODEL,
     CrossEncoderRerankerConfig,
@@ -53,6 +61,10 @@ __all__ = [
     "MetadataFilterMatcher",
     "ReciprocalRankFusion",
     "ReciprocalRankFusionConfig",
+    "RelationshipContextError",
+    "RelationshipContextExpander",
+    "RelationshipContextExpansionConfig",
+    "RelationshipContextIndex",
     "RerankerBackend",
     "RerankerModelError",
     "RerankerOutputError",
