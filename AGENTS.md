@@ -416,6 +416,17 @@ Relationship-aware context expansion must:
 * keep expanded chunks separate from ranked seed evidence without fabricated scores or ranks
 * remain separate from retrieval execution, query understanding, and RAG integration
 
+### Citation provenance
+
+Citation construction must:
+
+* occur offline after retrieval/context expansion, without search or generation
+* derive citations only from structured provenance, never guesses or prose parsing
+* preserve stored URLs exactly, never fabricate URLs, and allow missing URLs
+* distinguish retrieved and expanded evidence with separate citation identities
+* preserve artifact, document, event, repository, chunk, relationship, and evidence identities
+* preserve real seed diagnostics without fabricating scores or ranks for expanded context
+
 ### Generation
 
 Responsible for:

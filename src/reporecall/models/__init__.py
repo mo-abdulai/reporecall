@@ -35,6 +35,15 @@ from reporecall.models.keyword_retrieval import (
     KeywordIndexMatch,
     KeywordSearchHit,
 )
+from reporecall.models.provenance import (
+    CitationBundle,
+    CitationIdentifier,
+    CitationKind,
+    CitationSource,
+    ExpandedEvidenceCitation,
+    RetrievedEvidenceCitation,
+    SeedCitationReference,
+)
 from reporecall.models.query_understanding import UnderstoodQuery
 from reporecall.models.records import (
     ChangedFile,
@@ -86,6 +95,10 @@ __all__ = [
     "ArtifactType",
     "ChangedFile",
     "ChunkEmbedding",
+    "CitationBundle",
+    "CitationIdentifier",
+    "CitationKind",
+    "CitationSource",
     "ContextExpansionReason",
     "EngineeringEvent",
     "EngineeringRelationship",
@@ -94,6 +107,7 @@ __all__ = [
     "EventMetadata",
     "ExpandedContextChunk",
     "ExpandedContextResult",
+    "ExpandedEvidenceCitation",
     "FileChangeType",
     "GitCommit",
     "GitHubBranchReference",
@@ -135,7 +149,9 @@ __all__ = [
     "RetrievalDocumentSection",
     "RetrievalSectionType",
     "RetrievalSource",
+    "RetrievedEvidenceCitation",
     "ReviewState",
+    "SeedCitationReference",
     "UnderstoodQuery",
     "VectorIndexManifest",
     "VectorIndexMatch",
