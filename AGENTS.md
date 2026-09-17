@@ -456,6 +456,15 @@ Responsible for:
 * latency measurements
 * experimental comparison
 
+Retrieval evaluation must:
+
+* support quality claims only through explicit human- or benchmark-supplied chunk judgments
+* never fabricate ground truth; label synthetic fixtures clearly and keep them in tests
+* observe canonical chunk identities and established ranks without changing retrieval behavior
+* treat unjudged chunks as nonrelevant in baseline metrics
+* document precision, recall, hit rate, MRR, and graded NDCG formulas explicitly
+* distinguish functional smoke tests from evidence of retrieval quality
+
 Do not mix these responsibilities unnecessarily.
 
 ---
