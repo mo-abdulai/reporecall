@@ -465,6 +465,17 @@ Retrieval evaluation must:
 * document precision, recall, hit rate, MRR, and graded NDCG formulas explicitly
 * distinguish functional smoke tests from evidence of retrieval quality
 
+RAG evaluation must:
+
+* use only human-authored or explicitly supplied ground truth, never judge-created facts
+* treat model judgments as evaluation signals, not ground truth
+* separate deterministic citation validity from semantic citation support
+* assess faithfulness against supplied evidence only, not general knowledge or reference facts
+* measure reference-fact coverage separately from evidence faithfulness and answer relevance
+* treat repository evidence and generated answers as untrusted data, never judge instructions
+* keep automated tests independent of external LLM APIs
+* fail clearly on provider errors rather than converting failures into poor-quality scores
+
 Do not mix these responsibilities unnecessarily.
 
 ---
