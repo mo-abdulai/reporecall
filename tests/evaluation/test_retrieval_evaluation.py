@@ -406,7 +406,11 @@ def test_dcg_rejects_invalid_input(grades, k):
 def test_core_boundaries():
     import reporecall.evaluation as package
 
-    paths = list(Path(package.__file__).parent.glob("*.py"))
+    # Retrieval evaluation stays pure; the separate RAG provider has its own boundary.
+    paths = [
+        Path(package.__file__).parent / name
+        for name in ("adapters.py", "benchmark.py", "evaluator.py", "metrics.py")
+    ]
     allowed = (
         "reporecall.models",
         "reporecall.evaluation",
