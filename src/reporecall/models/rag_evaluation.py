@@ -6,6 +6,7 @@ from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from reporecall.models.citation_validation import validate_citation_labels
 from reporecall.models.context_expansion import ContextExpansionReason
 from reporecall.models.evaluation import MetricValue, Nonblank
 from reporecall.models.provenance import CitationBundle, CitationIdentifier
@@ -255,6 +256,13 @@ class RAGEvaluationResult(BaseModel):
             or self.case.query != self.sample.citation_bundle.query
         ):
             raise ValueError("Evaluation case/sample identity and query must agree.")
+        parsed = validate_citation_labels(self.sample.answer, self.sample.citation_bundle)
+        diagnostics = self.deterministic_citation_validation
+        if (
+            diagnostics.cited_labels != parsed.referenced_labels
+            or diagnostics.unknown_cited_labels != parsed.unknown_labels
+        ):
+            raise ValueError("Citation diagnostics must match the supplied answer and bundle.")
         if tuple(f.fact_id for f in self.semantic_judgment.fact_assessments) != tuple(
             f.fact_id for f in self.case.expected_facts
         ):

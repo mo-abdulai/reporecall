@@ -346,3 +346,21 @@ def test_comparisons_require_same_ground_truth_and_judge():
                 ),
             )
         )
+
+
+@pytest.mark.parametrize("deserialize", [False, True])
+def test_result_rejects_diagnostics_inconsistent_with_answer(deserialize):
+    import json
+
+    from pydantic import ValidationError
+
+    result = RAGEvaluator(
+        judge_backend=FakeRAGEvaluationJudgeBackend(judgment())
+    ).evaluate_case(make_case(), make_sample())
+    payload = result.model_dump(mode="json")
+    payload["sample"]["answer"] = "Synthetic claim [R99]."
+    with pytest.raises(ValidationError, match="diagnostics must match"):
+        if deserialize:
+            RAGEvaluationResult.model_validate_json(json.dumps(payload))
+        else:
+            RAGEvaluationResult(**payload)
