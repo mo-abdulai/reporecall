@@ -331,6 +331,17 @@ Responsible for:
 * relational persistence
 * metadata persistence
 
+PostgreSQL persistence must:
+
+* preserve canonical domain identities, metadata, source URLs, and relationship evidence
+* reconstruct retrieval-ready corpus state without rerunning ingestion
+* keep ORM records separate from domain models and manage schemas through migrations
+* preserve normalized exact inner-product semantics and filter metadata before vector top-k
+* validate embedding model, dimension, normalization, and exact source-text hashes
+* reject conflicting immutable identities and commit logical corpus writes atomically
+* keep approximate vector indexing behind explicit evaluation and authorization
+* keep SQL and persistence logic outside future API routes
+
 ### Retrieval
 
 Responsible for:
