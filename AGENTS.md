@@ -1302,3 +1302,13 @@ ingestion
 LLM generation is only one part of the system.
 
 Optimize for correctness, explainability, testability, retrieval quality, and maintainability rather than maximizing framework usage.
+
+## HTTP Service Boundaries
+
+- Routes validate typed requests, call application services, and map responses; keep SQL and retrieval algorithms outside routes.
+- Own shared database and search resources in application lifespan; avoid database connections, model loading, and network calls at import time.
+- Keep liveness independent of dependencies and readiness explicit about database/schema availability.
+- API contracts must preserve source text, canonical provenance, real URLs, raw ranking diagnostics, and separate ranked seeds from unranked expanded evidence.
+- Keep query understanding explicitly separate from HTTP search until integration is requested.
+- Return safe error envelopes without secrets, connection URLs, provider errors, or tracebacks.
+- HTTP tests use fake external/model backends; real database tests require an explicit test database and isolated schemas.

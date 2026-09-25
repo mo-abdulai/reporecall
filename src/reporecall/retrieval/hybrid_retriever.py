@@ -15,7 +15,6 @@ from reporecall.models import (
 )
 from reporecall.retrieval.exceptions import HybridRetrievalError
 from reporecall.retrieval.keyword_retriever import KeywordRetriever
-from reporecall.retrieval.vector_retriever import VectorRetriever
 
 
 class HybridRetrievalConfig(BaseModel):
@@ -27,13 +26,21 @@ class HybridRetrievalConfig(BaseModel):
     model_config = ConfigDict(frozen=True)
 
 
+class DenseRetriever(Protocol):
+    """Dense branch contract shared by FAISS and PostgreSQL retrieval."""
+
+    def search(
+        self, query: str, *, k: int = 5, metadata_filter: MetadataFilter | None = None
+    ) -> list[VectorSearchHit]: ...
+
+
 class HybridRetriever:
     """Collect and merge dense and keyword candidates without rank fusion."""
 
     def __init__(
         self,
         *,
-        vector_retriever: VectorRetriever,
+        vector_retriever: DenseRetriever,
         keyword_retriever: KeywordRetriever,
         config: HybridRetrievalConfig | None = None,
     ) -> None:
